@@ -43,6 +43,8 @@ String serverIndex = "<script src='https://ajax.googleapis.com/ajax/libs/jquery/
 
 const char* ssid = "707";
 const char* password = "0000000000";
+bool opened = false;
+File file;
 
 #define FORMAT_SPIFFS_IF_FAILED true
 ESP32WebServer server(80);
@@ -157,21 +159,24 @@ void setup(void){
   /*handling uploading file */
   server.on("/update", HTTP_POST, [](){
     server.sendHeader("Connection", "close");
+    opened = false;
   },[](){
     HTTPUpload& upload = server.upload();
-    if(upload.status == UPLOAD_FILE_START){
-      Serial.printf("Upload: %s\n", upload.filename.c_str());
-    } else if(upload.status == UPLOAD_FILE_WRITE){
-      File file = SPIFFS.open(String("/") + upload.filename, FILE_WRITE);
-      if(!file){
-        Serial.println("- failed to open file for writing");
-        return;
-      }
+    if(opened == false){
+        opened = true;
+        file = SPIFFS.open(String("/") + upload.filename, FILE_WRITE);
+        if(!file){
+            Serial.println("- failed to open file for writing");
+            return;
+        }
+    } 
+    if(upload.status == UPLOAD_FILE_WRITE){
       if(file.write(upload.buf, upload.currentSize) != upload.currentSize){
         Serial.println("- failed to write");
         return;
       }
     } else if(upload.status == UPLOAD_FILE_END){
+        opened = false;
     }
   });
   server.begin();
